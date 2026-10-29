@@ -9,7 +9,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/labstack/echo/v4"
+	"github.com/gin-gonic/gin"
 )
 
 type testGenericRequest struct {
@@ -29,13 +29,13 @@ type testGenericResponse struct {
 
 func TestGenericHandler(t *testing.T) {
 	t.Run("bind error", func(t *testing.T) {
-		e := echo.New()
 
 		req := httptest.NewRequest(http.MethodPost, "/", strings.NewReader("{"))
-		req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
+		req.Header.Set("Content-Type", gin.MIMEJSON)
 
 		rec := httptest.NewRecorder()
-		ctx := e.NewContext(req, rec)
+		ctx, _ := gin.CreateTestContext(rec)
+		ctx.Request = req
 
 		request := testGenericRequest{}
 
@@ -58,13 +58,13 @@ func TestGenericHandler(t *testing.T) {
 	})
 
 	t.Run("validation error", func(t *testing.T) {
-		e := echo.New()
 
 		req := httptest.NewRequest(http.MethodPost, "/", strings.NewReader(`{}`))
-		req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
+		req.Header.Set("Content-Type", gin.MIMEJSON)
 
 		rec := httptest.NewRecorder()
-		ctx := e.NewContext(req, rec)
+		ctx, _ := gin.CreateTestContext(rec)
+		ctx.Request = req
 
 		request := testGenericRequest{}
 
@@ -87,13 +87,13 @@ func TestGenericHandler(t *testing.T) {
 	})
 
 	t.Run("usecaseFn is not a function", func(t *testing.T) {
-		e := echo.New()
 
 		req := httptest.NewRequest(http.MethodPost, "/", strings.NewReader(`{"name":"john"}`))
-		req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
+		req.Header.Set("Content-Type", gin.MIMEJSON)
 
 		rec := httptest.NewRecorder()
-		ctx := e.NewContext(req, rec)
+		ctx, _ := gin.CreateTestContext(rec)
+		ctx.Request = req
 
 		request := testGenericRequest{}
 
@@ -109,13 +109,13 @@ func TestGenericHandler(t *testing.T) {
 	})
 
 	t.Run("invalid input parameter count", func(t *testing.T) {
-		e := echo.New()
 
 		req := httptest.NewRequest(http.MethodPost, "/", strings.NewReader(`{"name":"john"}`))
-		req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
+		req.Header.Set("Content-Type", gin.MIMEJSON)
 
 		rec := httptest.NewRecorder()
-		ctx := e.NewContext(req, rec)
+		ctx, _ := gin.CreateTestContext(rec)
+		ctx.Request = req
 
 		request := testGenericRequest{}
 
@@ -137,13 +137,13 @@ func TestGenericHandler(t *testing.T) {
 	})
 
 	t.Run("invalid output parameter count", func(t *testing.T) {
-		e := echo.New()
 
 		req := httptest.NewRequest(http.MethodPost, "/", strings.NewReader(`{"name":"john"}`))
-		req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
+		req.Header.Set("Content-Type", gin.MIMEJSON)
 
 		rec := httptest.NewRecorder()
-		ctx := e.NewContext(req, rec)
+		ctx, _ := gin.CreateTestContext(rec)
+		ctx.Request = req
 
 		request := testGenericRequest{}
 
@@ -164,13 +164,13 @@ func TestGenericHandler(t *testing.T) {
 	})
 
 	t.Run("handler returns error", func(t *testing.T) {
-		e := echo.New()
 
 		req := httptest.NewRequest(http.MethodPost, "/", strings.NewReader(`{"name":"john"}`))
-		req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
+		req.Header.Set("Content-Type", gin.MIMEJSON)
 
 		rec := httptest.NewRecorder()
-		ctx := e.NewContext(req, rec)
+		ctx, _ := gin.CreateTestContext(rec)
+		ctx.Request = req
 
 		request := testGenericRequest{}
 
@@ -192,13 +192,13 @@ func TestGenericHandler(t *testing.T) {
 	})
 
 	t.Run("handler returns success", func(t *testing.T) {
-		e := echo.New()
 
 		req := httptest.NewRequest(http.MethodPost, "/", strings.NewReader(`{"name":"john"}`))
-		req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
+		req.Header.Set("Content-Type", gin.MIMEJSON)
 
 		rec := httptest.NewRecorder()
-		ctx := e.NewContext(req, rec)
+		ctx, _ := gin.CreateTestContext(rec)
+		ctx.Request = req
 
 		request := testGenericRequest{}
 
@@ -220,13 +220,13 @@ func TestGenericHandler(t *testing.T) {
 	})
 
 	t.Run("handler returns response and error", func(t *testing.T) {
-		e := echo.New()
 
 		req := httptest.NewRequest(http.MethodPost, "/", strings.NewReader(`{"name":"john"}`))
-		req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
+		req.Header.Set("Content-Type", gin.MIMEJSON)
 
 		rec := httptest.NewRecorder()
-		ctx := e.NewContext(req, rec)
+		ctx, _ := gin.CreateTestContext(rec)
+		ctx.Request = req
 
 		request := testGenericRequest{}
 
@@ -259,13 +259,13 @@ func TestGenericHandler(t *testing.T) {
 	})
 
 	t.Run("handler returns response and app error", func(t *testing.T) {
-		e := echo.New()
 
 		req := httptest.NewRequest(http.MethodPost, "/", strings.NewReader(`{"name":"john"}`))
-		req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
+		req.Header.Set("Content-Type", gin.MIMEJSON)
 
 		rec := httptest.NewRecorder()
-		ctx := e.NewContext(req, rec)
+		ctx, _ := gin.CreateTestContext(rec)
+		ctx.Request = req
 
 		request := testGenericRequest{}
 

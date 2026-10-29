@@ -3,11 +3,12 @@ package response
 import (
 	"context"
 
-	"github.com/labstack/echo/v4"
+	"github.com/DoWithLogic/golang-clean-architecture/pkg/binder"
+	"github.com/gin-gonic/gin"
 )
 
-func GenericPaginationHandler[Request validatable, Response any](c echo.Context, request *Request, usecaseFn func(ctx context.Context, request *Request) (Response, error)) error {
-	if err := c.Bind(request); err != nil {
+func GenericPaginationHandler[Request validatable, Response any](c *gin.Context, request *Request, usecaseFn func(ctx context.Context, request *Request) (Response, error)) error {
+	if err := binder.Bind(c, request); err != nil {
 		return ErrorBuilder(BadRequest(err)).Send(c)
 	}
 
@@ -15,7 +16,7 @@ func GenericPaginationHandler[Request validatable, Response any](c echo.Context,
 		return ErrorBuilder(BadRequest(err)).Send(c)
 	}
 
-	result, err := usecaseFn(c.Request().Context(), request)
+	result, err := usecaseFn(c.Request.Context(), request)
 	if err != nil {
 		return ErrorBuilder(err).Send(c)
 	}

@@ -10,7 +10,7 @@ import (
 	"github.com/DoWithLogic/golang-clean-architecture/pkg/redis"
 	"github.com/DoWithLogic/golang-clean-architecture/pkg/types"
 	"github.com/alicebob/miniredis"
-	"github.com/labstack/echo/v4"
+	"github.com/gin-gonic/gin"
 )
 
 func newMiddleware(t *testing.T) (*middleware.Middleware, string) {
@@ -49,21 +49,18 @@ func newMiddleware(t *testing.T) (*middleware.Middleware, string) {
 func TestJWTMiddleware_MissingAuthorizationHeader(t *testing.T) {
 	m, _ := newMiddleware(t)
 
-	e := echo.New()
 	req := httptest.NewRequest(http.MethodGet, "/", nil)
 	rec := httptest.NewRecorder()
-	ctx := e.NewContext(req, rec)
+	_, router := gin.CreateTestContext(rec)
 
 	nextCalled := false
 
-	handler := m.JWTMiddleware()(func(c echo.Context) error {
+	router.GET("/", m.JWTMiddleware(), func(c *gin.Context) {
 		nextCalled = true
-		return c.NoContent(http.StatusOK)
+		c.Status(http.StatusOK)
 	})
 
-	if err := handler(ctx); err != nil {
-		t.Fatalf("handler() error = %v", err)
-	}
+	router.ServeHTTP(rec, req)
 
 	if nextCalled {
 		t.Fatal("next handler should not be called")
@@ -77,22 +74,19 @@ func TestJWTMiddleware_MissingAuthorizationHeader(t *testing.T) {
 func TestJWTMiddleware_InvalidToken(t *testing.T) {
 	m, _ := newMiddleware(t)
 
-	e := echo.New()
 	req := httptest.NewRequest(http.MethodGet, "/", nil)
 	req.Header.Set(types.AuthorizationHeaderKey.String(), "Bearer invalid-token")
 	rec := httptest.NewRecorder()
-	ctx := e.NewContext(req, rec)
+	_, router := gin.CreateTestContext(rec)
 
 	nextCalled := false
 
-	handler := m.JWTMiddleware()(func(c echo.Context) error {
+	router.GET("/", m.JWTMiddleware(), func(c *gin.Context) {
 		nextCalled = true
-		return c.NoContent(http.StatusOK)
+		c.Status(http.StatusOK)
 	})
 
-	if err := handler(ctx); err != nil {
-		t.Fatalf("handler() error = %v", err)
-	}
+	router.ServeHTTP(rec, req)
 
 	if nextCalled {
 		t.Fatal("next handler should not be called")
@@ -106,18 +100,17 @@ func TestJWTMiddleware_InvalidToken(t *testing.T) {
 func TestJWTMiddleware_Success(t *testing.T) {
 	m, token := newMiddleware(t)
 
-	e := echo.New()
 	req := httptest.NewRequest(http.MethodGet, "/", nil)
 	req.Header.Set(types.AuthorizationHeaderKey.String(), "Bearer "+token)
 	rec := httptest.NewRecorder()
-	ctx := e.NewContext(req, rec)
+	_, router := gin.CreateTestContext(rec)
 
 	nextCalled := false
 
-	handler := m.JWTMiddleware()(func(c echo.Context) error {
+	router.GET("/", m.JWTMiddleware(), func(c *gin.Context) {
 		nextCalled = true
 
-		v := c.Get(types.CredentialDataContextKey.String())
+		v, _ := c.Get(types.CredentialDataContextKey.String())
 		if v == nil {
 			t.Fatal("claims not found in context")
 		}
@@ -135,12 +128,10 @@ func TestJWTMiddleware_Success(t *testing.T) {
 			t.Fatalf("ContactValue = %s", claims.Data.ContactValue)
 		}
 
-		return c.NoContent(http.StatusOK)
+		c.Status(http.StatusOK)
 	})
 
-	if err := handler(ctx); err != nil {
-		t.Fatalf("handler() error = %v", err)
-	}
+	router.ServeHTTP(rec, req)
 
 	if !nextCalled {
 		t.Fatal("next handler should be called")

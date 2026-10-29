@@ -3,9 +3,10 @@ package v1
 import (
 	"github.com/DoWithLogic/golang-clean-architecture/internal/app/users"
 	"github.com/DoWithLogic/golang-clean-architecture/internal/app/users/dtos"
+	"github.com/DoWithLogic/golang-clean-architecture/pkg/binder"
 	"github.com/DoWithLogic/golang-clean-architecture/pkg/observability/instrumentation"
 	"github.com/DoWithLogic/golang-clean-architecture/pkg/response"
-	"github.com/labstack/echo/v4"
+	"github.com/gin-gonic/gin"
 )
 
 type handlers struct {
@@ -26,25 +27,28 @@ func NewHandlers(uc users.Usecase) *handlers {
 // @Success		200  	{object}	response.Success{data=dtos.UserLoginResponse}			"SUCCESS"
 // @Failure		500		{object}	response.FailedResponse									"INTERNAL_SERVER__ERROR"
 // @Router		/user/public/login [post]
-func (h *handlers) LoginHandler(c echo.Context) error {
-	ctx, span := instrumentation.NewTraceSpan(c.Request().Context(), "LoginHandler")
+func (h *handlers) LoginHandler(c *gin.Context) {
+	ctx, span := instrumentation.NewTraceSpan(c.Request.Context(), "LoginHandler")
 	defer span.End()
 
 	var request dtos.UserLoginRequest
-	if err := c.Bind(&request); err != nil {
-		return response.ErrorBuilder(response.BadRequest(err)).Send(c)
+	if err := binder.Bind(c, &request); err != nil {
+		response.ErrorBuilder(response.BadRequest(err)).Send(c)
+		return
 	}
 
 	if err := request.Validate(); err != nil {
-		return response.ErrorBuilder(response.BadRequest(err)).Send(c)
+		response.ErrorBuilder(response.BadRequest(err)).Send(c)
+		return
 	}
 
 	authData, err := h.uc.Login(ctx, request)
 	if err != nil {
-		return response.ErrorBuilder(err).Send(c)
+		response.ErrorBuilder(err).Send(c)
+		return
 	}
 
-	return response.SuccessBuilder(authData).Send(c)
+	response.SuccessBuilder(authData).Send(c)
 }
 
 // @Summary		Sign Up
@@ -57,24 +61,27 @@ func (h *handlers) LoginHandler(c echo.Context) error {
 // @Success		200		{object}	response.ResponseFormat			"SUCCESS"
 // @Failure		500		{object}	response.FailedResponse			"INTERNAL_SERVER__ERROR"
 // @Router		/user/public/sign-up [post]
-func (h *handlers) SignUpHandler(c echo.Context) error {
-	ctx, span := instrumentation.NewTraceSpan(c.Request().Context(), "SignUpHandler")
+func (h *handlers) SignUpHandler(c *gin.Context) {
+	ctx, span := instrumentation.NewTraceSpan(c.Request.Context(), "SignUpHandler")
 	defer span.End()
 
 	request := new(dtos.SignUpRequest)
-	if err := c.Bind(request); err != nil {
-		return response.ErrorBuilder(response.BadRequest(err)).Send(c)
+	if err := binder.Bind(c, request); err != nil {
+		response.ErrorBuilder(response.BadRequest(err)).Send(c)
+		return
 	}
 
 	if err := request.Validate(); err != nil {
-		return response.ErrorBuilder(response.BadRequest(err)).Send(c)
+		response.ErrorBuilder(response.BadRequest(err)).Send(c)
+		return
 	}
 
 	if err := h.uc.SignUp(ctx, *request); err != nil {
-		return response.ErrorBuilder(err).Send(c)
+		response.ErrorBuilder(err).Send(c)
+		return
 	}
 
-	return response.SuccessBuilder(nil).Send(c)
+	response.SuccessBuilder(nil).Send(c)
 }
 
 // @Summary		User Detail By ID
@@ -88,21 +95,23 @@ func (h *handlers) SignUpHandler(c echo.Context) error {
 // @Failure		500		{object}	response.FailedResponse						"INTERNAL_SERVER__ERROR"
 // @Router		/user/{id}/detail [get]
 // @Security	BearerToken
-func (h *handlers) UserDetailByIDHandler(c echo.Context) error {
-	ctx, span := instrumentation.NewTraceSpan(c.Request().Context(), "UserDetailByIDHandler")
+func (h *handlers) UserDetailByIDHandler(c *gin.Context) {
+	ctx, span := instrumentation.NewTraceSpan(c.Request.Context(), "UserDetailByIDHandler")
 	defer span.End()
 
 	request := new(dtos.UserDetailByIDRequest)
-	if err := c.Bind(request); err != nil {
-		return response.ErrorBuilder(response.BadRequest(err)).Send(c)
+	if err := binder.Bind(c, request); err != nil {
+		response.ErrorBuilder(response.BadRequest(err)).Send(c)
+		return
 	}
 
 	userData, err := h.uc.UserDetail(ctx, *request)
 	if err != nil {
-		return response.ErrorBuilder(err).Send(c)
+		response.ErrorBuilder(err).Send(c)
+		return
 	}
 
-	return response.SuccessBuilder(userData).Send(c)
+	response.SuccessBuilder(userData).Send(c)
 }
 
 // @Summary		User Detail By Contact
@@ -116,21 +125,23 @@ func (h *handlers) UserDetailByIDHandler(c echo.Context) error {
 // @Failure		500					{object}	response.FailedResponse						"INTERNAL_SERVER__ERROR"
 // @Router		/user/contact/{contact_value}/detail [get]
 // @Security	BearerToken
-func (h *handlers) UserDetailByContactValueHandler(c echo.Context) error {
-	ctx, span := instrumentation.NewTraceSpan(c.Request().Context(), "UserDetailByContactValueHandler")
+func (h *handlers) UserDetailByContactValueHandler(c *gin.Context) {
+	ctx, span := instrumentation.NewTraceSpan(c.Request.Context(), "UserDetailByContactValueHandler")
 	defer span.End()
 
 	request := new(dtos.UserDetailByContactValueRequest)
-	if err := c.Bind(request); err != nil {
-		return response.ErrorBuilder(response.BadRequest(err)).Send(c)
+	if err := binder.Bind(c, request); err != nil {
+		response.ErrorBuilder(response.BadRequest(err)).Send(c)
+		return
 	}
 
 	userData, err := h.uc.UserDetail(ctx, *request)
 	if err != nil {
-		return response.ErrorBuilder(err).Send(c)
+		response.ErrorBuilder(err).Send(c)
+		return
 	}
 
-	return response.SuccessBuilder(userData).Send(c)
+	response.SuccessBuilder(userData).Send(c)
 }
 
 // @Summary		Update User
@@ -145,20 +156,22 @@ func (h *handlers) UserDetailByContactValueHandler(c echo.Context) error {
 // @Failure		500		{object}	response.FailedResponse							"INTERNAL_SERVER__ERROR"
 // @Router		/user/{id}/update [patch]
 // @Security	BearerToken
-func (h *handlers) UpdateUserHandler(c echo.Context) error {
-	ctx, span := instrumentation.NewTraceSpan(c.Request().Context(), "UpdateUserHandler")
+func (h *handlers) UpdateUserHandler(c *gin.Context) {
+	ctx, span := instrumentation.NewTraceSpan(c.Request.Context(), "UpdateUserHandler")
 	defer span.End()
 
 	request := new(dtos.UserUpdateRequest)
-	if err := c.Bind(request); err != nil {
-		return response.ErrorBuilder(response.BadRequest(err)).Send(c)
+	if err := binder.Bind(c, request); err != nil {
+		response.ErrorBuilder(response.BadRequest(err)).Send(c)
+		return
 	}
 
 	if err := h.uc.UserUpdate(ctx, *request); err != nil {
-		return response.ErrorBuilder(err).Send(c)
+		response.ErrorBuilder(err).Send(c)
+		return
 	}
 
-	return response.SuccessBuilder(nil).Send(c)
+	response.SuccessBuilder(nil).Send(c)
 }
 
 // @Summary		Transition User Status
@@ -173,18 +186,20 @@ func (h *handlers) UpdateUserHandler(c echo.Context) error {
 // @Failure		500		{object}	response.FailedResponse							"INTERNAL_SERVER__ERROR"
 // @Router		/user/{id}/status/transition [put]
 // @Security	BearerToken
-func (h *handlers) TransitionUserStatusHandler(c echo.Context) error {
-	ctx, span := instrumentation.NewTraceSpan(c.Request().Context(), "TransitionUserStatusHandler")
+func (h *handlers) TransitionUserStatusHandler(c *gin.Context) {
+	ctx, span := instrumentation.NewTraceSpan(c.Request.Context(), "TransitionUserStatusHandler")
 	defer span.End()
 
 	request := new(dtos.TransitionUserStatusRequest)
-	if err := c.Bind(request); err != nil {
-		return response.ErrorBuilder(response.BadRequest(err)).Send(c)
+	if err := binder.Bind(c, request); err != nil {
+		response.ErrorBuilder(response.BadRequest(err)).Send(c)
+		return
 	}
 
 	if err := h.uc.TransitionUserStatus(ctx, *request); err != nil {
-		return response.ErrorBuilder(err).Send(c)
+		response.ErrorBuilder(err).Send(c)
+		return
 	}
 
-	return response.SuccessBuilder(nil).Send(c)
+	response.SuccessBuilder(nil).Send(c)
 }

@@ -4,7 +4,7 @@ import (
 	"errors"
 	"net/http"
 
-	"github.com/labstack/echo/v4"
+	"github.com/gin-gonic/gin"
 	"go.opentelemetry.io/otel/codes"
 	"go.opentelemetry.io/otel/trace"
 )
@@ -42,12 +42,12 @@ func ErrorBuilder(err error) ErrorResponse {
 	return response
 }
 
-// Send sends the CustomResponse as a JSON response using the provided Echo context.
-func (x ErrorResponse) Send(c echo.Context) error {
+// Send sends the CustomResponse as a JSON response using the provided Gin context.
+func (x ErrorResponse) Send(c *gin.Context) error {
 	err := errors.New(x.Error)
-	span := trace.SpanFromContext(c.Request().Context())
+	span := trace.SpanFromContext(c.Request.Context())
 	span.RecordError(err)
 	span.SetStatus(codes.Error, err.Error())
 
-	return c.JSON(x.Code, x)
+	return sendJSON(c, x.Code, x)
 }

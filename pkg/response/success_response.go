@@ -3,7 +3,7 @@ package response
 import (
 	"net/http"
 
-	"github.com/labstack/echo/v4"
+	"github.com/gin-gonic/gin"
 	"go.opentelemetry.io/otel/codes"
 	"go.opentelemetry.io/otel/trace"
 )
@@ -43,8 +43,8 @@ func SuccessBuilder(response any, meta ...any) SuccessWithPaginationResponse {
 	return result
 }
 
-// Send sends the CustomResponse as a JSON response using the provided Echo context.
-func (c SuccessResponse) Send(ctx echo.Context) error {
-	trace.SpanFromContext(ctx.Request().Context()).SetStatus(codes.Ok, http.StatusText(c.Code))
-	return ctx.JSON(c.Code, c)
+// Send sends the CustomResponse as a JSON response using the provided Gin context.
+func (c SuccessResponse) Send(ctx *gin.Context) error {
+	trace.SpanFromContext(ctx.Request.Context()).SetStatus(codes.Ok, http.StatusText(c.Code))
+	return sendJSON(ctx, c.Code, c)
 }

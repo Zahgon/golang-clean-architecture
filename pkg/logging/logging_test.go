@@ -3,6 +3,7 @@ package logging_test
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -10,7 +11,7 @@ import (
 	"testing"
 
 	"github.com/DoWithLogic/golang-clean-architecture/pkg/logging"
-	"github.com/labstack/echo/v4"
+	"github.com/gin-gonic/gin"
 	"github.com/rs/zerolog"
 )
 
@@ -20,16 +21,23 @@ func newTestLogger(buf *bytes.Buffer) *zerolog.Logger {
 	return &l
 }
 
-// newEchoContext builds a minimal Echo context around an httptest.Request.
-func newEchoContext(method, path string, body io.Reader, headers map[string]string) (echo.Context, *httptest.ResponseRecorder) {
-	e := echo.New()
+// serve runs a request built from method, path, body and headers through the middleware chain and handler.
+func serve(method, path string, body io.Reader, headers map[string]string, handler gin.HandlerFunc, middleware ...gin.HandlerFunc) *httptest.ResponseRecorder {
+	gin.SetMode(gin.TestMode)
+
 	req := httptest.NewRequest(method, path, body)
-	req.Header.Set(echo.HeaderContentType, "application/json")
+	req.Header.Set("Content-Type", "application/json")
 	for k, v := range headers {
 		req.Header.Set(k, v)
 	}
 	rec := httptest.NewRecorder()
-	return e.NewContext(req, rec), rec
+
+	_, router := gin.CreateTestContext(rec)
+	router.Use(middleware...)
+	router.Handle(method, "/*path", handler)
+	router.ServeHTTP(rec, req)
+
+	return rec
 }
 
 // loggedFields unmarshals the first JSON log line from buf.
@@ -46,16 +54,10 @@ func TestMiddleware_LogsRequest(t *testing.T) {
 	buf := &bytes.Buffer{}
 	logger := newTestLogger(buf)
 
-	c, _ := newEchoContext(http.MethodGet, "/api/test", nil, nil)
-
 	mw := logging.Middleware(logging.WithLogger(logger))
-	handler := mw(func(c echo.Context) error {
-		return c.String(http.StatusOK, `{"ok":true}`)
-	})
-
-	if err := handler(c); err != nil {
-		t.Fatalf("handler error: %v", err)
-	}
+	serve(http.MethodGet, "/api/test", nil, nil, func(c *gin.Context) {
+		c.String(http.StatusOK, `{"ok":true}`)
+	}, mw)
 
 	fields := loggedFields(t, buf)
 	if fields["method"] != "GET" {
@@ -70,13 +72,10 @@ func TestMiddleware_SetsRequestIDHeader(t *testing.T) {
 	buf := &bytes.Buffer{}
 	logger := newTestLogger(buf)
 
-	c, rec := newEchoContext(http.MethodGet, "/", nil, nil)
-
 	mw := logging.Middleware(logging.WithLogger(logger))
-	handler := mw(func(c echo.Context) error {
-		return c.NoContent(http.StatusOK)
-	})
-	handler(c)
+	rec := serve(http.MethodGet, "/", nil, nil, func(c *gin.Context) {
+		c.Status(http.StatusOK)
+	}, mw)
 
 	if rec.Header().Get("X-Request-ID") == "" {
 		t.Error("expected X-Request-ID response header to be set")
@@ -87,15 +86,12 @@ func TestMiddleware_PropagatesExistingRequestID(t *testing.T) {
 	buf := &bytes.Buffer{}
 	logger := newTestLogger(buf)
 
-	c, rec := newEchoContext(http.MethodGet, "/", nil, map[string]string{
-		"X-Request-ID": "existing-id",
-	})
-
 	mw := logging.Middleware(logging.WithLogger(logger))
-	handler := mw(func(c echo.Context) error {
-		return c.NoContent(http.StatusOK)
-	})
-	handler(c)
+	rec := serve(http.MethodGet, "/", nil, map[string]string{
+		"X-Request-ID": "existing-id",
+	}, func(c *gin.Context) {
+		c.Status(http.StatusOK)
+	}, mw)
 
 	if got := rec.Header().Get("X-Request-ID"); got != "existing-id" {
 		t.Errorf("X-Request-ID = %q, want %q", got, "existing-id")
@@ -106,17 +102,14 @@ func TestMiddleware_StoresRequestIDInContext(t *testing.T) {
 	buf := &bytes.Buffer{}
 	logger := newTestLogger(buf)
 
-	c, _ := newEchoContext(http.MethodGet, "/", nil, map[string]string{
-		"X-Request-ID": "ctx-id",
-	})
-
 	var capturedID any
 	mw := logging.Middleware(logging.WithLogger(logger))
-	handler := mw(func(c echo.Context) error {
-		capturedID = c.Request().Context().Value(logging.RequestIDContextKey)
-		return c.NoContent(http.StatusOK)
-	})
-	handler(c)
+	serve(http.MethodGet, "/", nil, map[string]string{
+		"X-Request-ID": "ctx-id",
+	}, func(c *gin.Context) {
+		capturedID = c.Request.Context().Value(logging.RequestIDContextKey)
+		c.Status(http.StatusOK)
+	}, mw)
 
 	if capturedID != "ctx-id" {
 		t.Errorf("context request ID = %v, want ctx-id", capturedID)
@@ -126,16 +119,12 @@ func TestMiddleware_StoresRequestIDInContext(t *testing.T) {
 func TestMiddleware_SkipsIgnoredPath(t *testing.T) {
 	buf := &bytes.Buffer{}
 	logger := newTestLogger(buf)
-
 	ip, _ := logging.NewIgnoredPatterns([]string{`^/ping$`})
 
-	c, _ := newEchoContext(http.MethodGet, "/ping", nil, nil)
-
 	mw := logging.Middleware(logging.WithLogger(logger), logging.WithIgnoredPatterns(ip))
-	handler := mw(func(c echo.Context) error {
-		return c.NoContent(http.StatusOK)
-	})
-	handler(c)
+	serve(http.MethodGet, "/ping", nil, nil, func(c *gin.Context) {
+		c.Status(http.StatusOK)
+	}, mw)
 
 	if buf.Len() > 0 {
 		t.Errorf("expected no log output for ignored path, got: %s", buf.String())
@@ -146,13 +135,10 @@ func TestMiddleware_LogsStatus(t *testing.T) {
 	buf := &bytes.Buffer{}
 	logger := newTestLogger(buf)
 
-	c, _ := newEchoContext(http.MethodGet, "/", nil, nil)
-
 	mw := logging.Middleware(logging.WithLogger(logger))
-	handler := mw(func(c echo.Context) error {
-		return c.NoContent(http.StatusCreated)
-	})
-	handler(c)
+	serve(http.MethodGet, "/", nil, nil, func(c *gin.Context) {
+		c.Status(http.StatusCreated)
+	}, mw)
 
 	fields := loggedFields(t, buf)
 	// JSON numbers unmarshal as float64.
@@ -164,15 +150,12 @@ func TestMiddleware_LogsStatus(t *testing.T) {
 func TestMiddleware_LogsRequestBody(t *testing.T) {
 	buf := &bytes.Buffer{}
 	logger := newTestLogger(buf)
-
 	body := `{"name":"dave"}`
-	c, _ := newEchoContext(http.MethodPost, "/users", strings.NewReader(body), nil)
 
 	mw := logging.Middleware(logging.WithLogger(logger))
-	handler := mw(func(c echo.Context) error {
-		return c.NoContent(http.StatusOK)
-	})
-	handler(c)
+	serve(http.MethodPost, "/users", strings.NewReader(body), nil, func(c *gin.Context) {
+		c.Status(http.StatusOK)
+	}, mw)
 
 	fields := loggedFields(t, buf)
 	reqBody, ok := fields["request_body"].(map[string]any)
@@ -187,15 +170,12 @@ func TestMiddleware_LogsRequestBody(t *testing.T) {
 func TestMiddleware_MasksRequestBody(t *testing.T) {
 	buf := &bytes.Buffer{}
 	logger := newTestLogger(buf)
-
 	body := `{"username":"alice","password":"secret"}`
-	c, _ := newEchoContext(http.MethodPost, "/login", strings.NewReader(body), nil)
 
 	mw := logging.Middleware(logging.WithLogger(logger), logging.WithMaskedKeys("password"))
-	handler := mw(func(c echo.Context) error {
-		return c.NoContent(http.StatusOK)
-	})
-	handler(c)
+	serve(http.MethodPost, "/login", strings.NewReader(body), nil, func(c *gin.Context) {
+		c.Status(http.StatusOK)
+	}, mw)
 
 	fields := loggedFields(t, buf)
 	reqBody := fields["request_body"].(map[string]any)
@@ -208,14 +188,11 @@ func TestMiddleware_LogsResponseBody(t *testing.T) {
 	buf := &bytes.Buffer{}
 	logger := newTestLogger(buf)
 
-	c, _ := newEchoContext(http.MethodGet, "/", nil, nil)
-
 	mw := logging.Middleware(logging.WithLogger(logger))
-	handler := mw(func(c echo.Context) error {
-		c.Response().Header().Set(echo.HeaderContentType, "application/json")
-		return c.JSON(http.StatusOK, map[string]string{"result": "ok"})
-	})
-	handler(c)
+	rec := serve(http.MethodGet, "/", nil, nil, func(c *gin.Context) {
+		c.Header("Content-Type", "application/json")
+		c.JSON(http.StatusOK, map[string]string{"result": "ok"})
+	}, mw)
 
 	fields := loggedFields(t, buf)
 	respBody, ok := fields["response_body"].(map[string]any)
@@ -225,19 +202,19 @@ func TestMiddleware_LogsResponseBody(t *testing.T) {
 	if respBody["result"] != "ok" {
 		t.Errorf("response_body.result = %v, want ok", respBody["result"])
 	}
+	if rec.Body.String() != `{"result":"ok"}` {
+		t.Errorf("response body = %q, want %q", rec.Body.String(), `{"result":"ok"}`)
+	}
 }
 
 func TestMiddleware_OmitsResponseBodyForNonJSON(t *testing.T) {
 	buf := &bytes.Buffer{}
 	logger := newTestLogger(buf)
 
-	c, _ := newEchoContext(http.MethodGet, "/", nil, nil)
-
 	mw := logging.Middleware(logging.WithLogger(logger))
-	handler := mw(func(c echo.Context) error {
-		return c.String(http.StatusOK, "plain text")
-	})
-	handler(c)
+	serve(http.MethodGet, "/", nil, nil, func(c *gin.Context) {
+		c.String(http.StatusOK, "plain text")
+	}, mw)
 
 	fields := loggedFields(t, buf)
 	if _, exists := fields["response_body"]; exists {
@@ -249,13 +226,10 @@ func TestMiddleware_LogsLatency(t *testing.T) {
 	buf := &bytes.Buffer{}
 	logger := newTestLogger(buf)
 
-	c, _ := newEchoContext(http.MethodGet, "/", nil, nil)
-
 	mw := logging.Middleware(logging.WithLogger(logger))
-	handler := mw(func(c echo.Context) error {
-		return c.NoContent(http.StatusOK)
-	})
-	handler(c)
+	serve(http.MethodGet, "/", nil, nil, func(c *gin.Context) {
+		c.Status(http.StatusOK)
+	}, mw)
 
 	fields := loggedFields(t, buf)
 	if _, ok := fields["latency"]; !ok {
@@ -269,16 +243,21 @@ func TestMiddleware_LogsLatency(t *testing.T) {
 func TestMiddleware_PropagatesHandlerError(t *testing.T) {
 	buf := &bytes.Buffer{}
 	logger := newTestLogger(buf)
+	want := errors.New("internal server error")
 
-	c, _ := newEchoContext(http.MethodGet, "/", nil, nil)
+	var err error
+	captureErr := func(c *gin.Context) {
+		c.Next()
+		if last := c.Errors.Last(); last != nil {
+			err = last.Err
+		}
+	}
 
-	want := echo.ErrInternalServerError
 	mw := logging.Middleware(logging.WithLogger(logger))
-	handler := mw(func(c echo.Context) error {
-		return want
-	})
+	serve(http.MethodGet, "/", nil, nil, func(c *gin.Context) {
+		_ = c.Error(want)
+	}, captureErr, mw)
 
-	err := handler(c)
 	if err != want {
 		t.Errorf("handler error = %v, want %v", err, want)
 	}

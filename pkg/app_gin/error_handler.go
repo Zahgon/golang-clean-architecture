@@ -1,4 +1,4 @@
-package app_echo
+package app_gin
 
 import (
 	"encoding/json"
@@ -11,10 +11,11 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/DoWithLogic/golang-clean-architecture/pkg/binder"
 	"github.com/DoWithLogic/golang-clean-architecture/pkg/response"
+	"github.com/gin-gonic/gin"
 	"github.com/golang-jwt/jwt"
 	"github.com/invopop/validation"
-	"github.com/labstack/echo/v4"
 	"github.com/valyala/fasthttp"
 )
 
@@ -28,17 +29,27 @@ var (
 	ErrMissingOrMalformatJWT  = errors.New("Missing or malformed JWT")
 )
 
+// handleErrors passes the last error a handler or middleware pushed with c.Error to errorHandler,
+// once the whole chain has returned.
+func handleErrors(c *gin.Context) {
+	c.Next()
+
+	if err := c.Errors.Last(); err != nil {
+		errorHandler(err.Err, c)
+	}
+}
+
 // errorHandler handles application errors and returns the appropriate HTTP response.
-func errorHandler(err error, c echo.Context) {
+func errorHandler(err error, c *gin.Context) {
 	var jwtErr *jwt.ValidationError
 	if errors.As(err, &jwtErr) || errors.Is(err, ErrMissingOrMalformatJWT) {
 		response.ErrorBuilder(response.Unauthorized(ErrAuthenticationRequired)).Send(c)
 		return
 	}
 
-	var echoErr *echo.HTTPError
-	if errors.As(err, &echoErr) {
-		switch echoErr.Code {
+	var httpErr *binder.HTTPError
+	if errors.As(err, &httpErr) {
+		switch httpErr.Code {
 		case http.StatusNotFound:
 			response.ErrorBuilder(response.NotFound(ErrResourceNotFound)).Send(c)
 		default:

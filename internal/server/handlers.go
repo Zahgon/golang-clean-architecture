@@ -9,25 +9,25 @@ import (
 	userV1 "github.com/DoWithLogic/golang-clean-architecture/internal/app/users/delivery/http/v1"
 	userRepository "github.com/DoWithLogic/golang-clean-architecture/internal/app/users/repository"
 	userUseCase "github.com/DoWithLogic/golang-clean-architecture/internal/app/users/usecase"
+	"github.com/DoWithLogic/golang-clean-architecture/pkg/app_gin"
+	"github.com/DoWithLogic/golang-clean-architecture/pkg/binder"
 	"github.com/DoWithLogic/golang-clean-architecture/pkg/encryptions"
 	"github.com/DoWithLogic/golang-clean-architecture/pkg/jwt"
 	"github.com/DoWithLogic/golang-clean-architecture/pkg/logging"
 	"github.com/DoWithLogic/golang-clean-architecture/pkg/middleware"
 	"github.com/DoWithLogic/golang-clean-architecture/pkg/observability"
 	"github.com/DoWithLogic/golang-clean-architecture/pkg/redis"
-	"github.com/labstack/echo/v4"
-
-	echoSwagger "github.com/swaggo/echo-swagger"
+	"github.com/gin-gonic/gin"
 )
 
 type routeMapper interface {
-	MapRoutes(api *echo.Group, mw *middleware.Middleware)
+	MapRoutes(api *app_gin.RouterGroup, mw *middleware.Middleware)
 }
 
 func (s *Server) setup() error {
 	s.setupMiddleware()
 
-	api := s.echo.Group("/api/v1")
+	api := s.gin.Group("/api/v1")
 
 	s.registerUtilityRoutes(api)
 
@@ -42,28 +42,40 @@ func (s *Server) setup() error {
 
 func (s *Server) setupMiddleware() {
 	logger := observability.NewZeroLogHook().Z()
-	s.echo.Use(logging.Middleware(logging.WithLogger(logger), logging.WithMaskedKeys("password", "token")))
+	s.gin.Use(logging.Middleware(logging.WithLogger(logger), logging.WithMaskedKeys("password", "token")))
 }
 
-func (s *Server) registerUtilityRoutes(api *echo.Group) {
+func (s *Server) registerUtilityRoutes(api *app_gin.RouterGroup) {
 	api.GET("/ping", s.ping)
-	api.GET("/swagger/*", echoSwagger.WrapHandler)
-	api.GET("/swagger/doc.json", s.swaggerDoc)
+	api.GET("/swagger/*any", s.swagger)
 }
 
-func (s *Server) ping(c echo.Context) error {
-	return c.String(http.StatusOK, "Hello World 👋")
+func (s *Server) ping(c *gin.Context) {
+	app_gin.Blob(c, http.StatusOK, "text/plain; charset=UTF-8", []byte("Hello World 👋"))
 }
 
-func (s *Server) swaggerDoc(c echo.Context) error {
+// swagger serves the generated swagger document on /swagger/doc.json and the swagger UI on the other paths,
+// gin does not allow a static route next to the /swagger/*any wildcard.
+func (s *Server) swagger(c *gin.Context) {
+	if c.Param("any") == "/doc.json" {
+		s.swaggerDoc(c)
+		return
+	}
+
+	app_gin.SwaggerHandler(c)
+}
+
+func (s *Server) swaggerDoc(c *gin.Context) {
 	data, err := os.ReadFile("docs/swagger.json")
 	if err != nil {
-		return echo.NewHTTPError(http.StatusInternalServerError, "failed to read swagger document")
+		_ = c.Error(binder.NewHTTPError(http.StatusInternalServerError, "failed to read swagger document"))
+		return
 	}
 
 	var doc map[string]any
 	if err := json.Unmarshal(data, &doc); err != nil {
-		return echo.NewHTTPError(http.StatusInternalServerError, "failed to parse swagger document")
+		_ = c.Error(binder.NewHTTPError(http.StatusInternalServerError, "failed to parse swagger document"))
+		return
 	}
 
 	doc["host"] = s.cfg.App.Host
@@ -71,10 +83,11 @@ func (s *Server) swaggerDoc(c echo.Context) error {
 
 	body, err := json.Marshal(doc)
 	if err != nil {
-		return echo.NewHTTPError(http.StatusInternalServerError, "failed to generate swagger document")
+		_ = c.Error(binder.NewHTTPError(http.StatusInternalServerError, "failed to generate swagger document"))
+		return
 	}
 
-	return c.Blob(http.StatusOK, echo.MIMEApplicationJSON, body)
+	app_gin.Blob(c, http.StatusOK, gin.MIMEJSON, body)
 }
 
 func (s *Server) buildHandlers() (*middleware.Middleware, []routeMapper) {

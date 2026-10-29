@@ -3,7 +3,8 @@ package response
 import (
 	"reflect"
 
-	"github.com/labstack/echo/v4"
+	"github.com/DoWithLogic/golang-clean-architecture/pkg/binder"
+	"github.com/gin-gonic/gin"
 	"github.com/pkg/errors"
 )
 
@@ -11,8 +12,8 @@ type validatable interface {
 	Validate() error
 }
 
-func GenericHandler[Request validatable](c echo.Context, request *Request, usecaseFn any) error {
-	if err := c.Bind(request); err != nil {
+func GenericHandler[Request validatable](c *gin.Context, request *Request, usecaseFn any) error {
+	if err := binder.Bind(c, request); err != nil {
 		return ErrorBuilder(BadRequest(err)).Send(c)
 	}
 
@@ -39,7 +40,7 @@ func GenericHandler[Request validatable](c echo.Context, request *Request, useca
 
 	// Prepare arguments for the function call
 	args := []reflect.Value{
-		reflect.ValueOf(c.Request().Context()),
+		reflect.ValueOf(c.Request.Context()),
 		reflect.ValueOf(*request),
 	}
 

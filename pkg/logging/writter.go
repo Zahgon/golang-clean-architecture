@@ -1,4 +1,4 @@
-// Package logging provides a reusable Echo middleware for structured HTTP
+// Package logging provides a reusable Gin middleware for structured HTTP
 // request/response logging via zerolog. It supports sensitive-field masking,
 // path exclusion, and X-Request-ID propagation.
 //
@@ -8,8 +8,8 @@
 //	    logging "github.com/golang-clean-architecture/pkg/logging"
 //	)
 //
-//	e := echo.New()
-//	e.Use(logging.Middleware(
+//	r := gin.New()
+//	r.Use(logging.Middleware(
 //	    logging.WithLogger(&logger),
 //	    logging.WithMaskedKeys("password", "token", "secret"),
 //	))
@@ -21,6 +21,8 @@ import (
 	"fmt"
 	"net"
 	"net/http"
+
+	"github.com/gin-gonic/gin"
 )
 
 // CustomResponseWriter wraps http.ResponseWriter to intercept and buffer
@@ -77,3 +79,16 @@ func (crw *CustomResponseWriter) Status() int { return crw.status }
 
 // Size returns the total number of bytes written to the response body.
 func (crw *CustomResponseWriter) Size() int { return crw.bytesWritten }
+
+// ginResponseWriter is the gin.ResponseWriter installed by the middleware, it sends the
+// response body and status code through the CustomResponseWriter.
+type ginResponseWriter struct {
+	gin.ResponseWriter
+	crw *CustomResponseWriter
+}
+
+func (w *ginResponseWriter) Write(b []byte) (int, error) { return w.crw.Write(b) }
+
+func (w *ginResponseWriter) WriteString(s string) (int, error) { return w.crw.Write([]byte(s)) }
+
+func (w *ginResponseWriter) WriteHeader(statusCode int) { w.crw.WriteHeader(statusCode) }
