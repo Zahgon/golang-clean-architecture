@@ -6,7 +6,7 @@ import (
 	"log"
 	"strings"
 
-	"github.com/DoWithLogic/golang-clean-architecture/pkg/app_echo"
+	"github.com/DoWithLogic/golang-clean-architecture/pkg/app_gin"
 	"github.com/DoWithLogic/golang-clean-architecture/pkg/datasources"
 	"github.com/DoWithLogic/golang-clean-architecture/pkg/jwt"
 	"github.com/DoWithLogic/golang-clean-architecture/pkg/redis"
@@ -16,7 +16,7 @@ import (
 type (
 	Config struct {
 		App            AppConfig
-		Server         app_echo.EchoConfig
+		Server         app_gin.GinConfig
 		Database       datasources.DatabaseConfig
 		Authentication AuthenticationConfig
 		Observability  ObservabilityConfig

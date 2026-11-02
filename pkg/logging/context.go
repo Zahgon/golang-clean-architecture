@@ -1,4 +1,4 @@
-// Package logging provides a reusable Echo middleware for structured HTTP
+// Package logging provides a reusable Gin middleware for structured HTTP
 // request/response logging via zerolog. It supports sensitive-field masking,
 // path exclusion, and X-Request-ID propagation.
 //
@@ -8,8 +8,8 @@
 //	    logging "github.com/golang-clean-architecture/pkg/logging"
 //	)
 //
-//	e := echo.New()
-//	e.Use(logging.Middleware(
+//	r := gin.New()
+//	r.Use(logging.Middleware(
 //	    logging.WithLogger(&logger),
 //	    logging.WithMaskedKeys("password", "token", "secret"),
 //	))

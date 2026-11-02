@@ -6,7 +6,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/labstack/echo/v4"
+	"github.com/gin-gonic/gin"
 )
 
 func TestErrorBuilder(t *testing.T) {
@@ -64,11 +64,11 @@ func TestErrorBuilder(t *testing.T) {
 }
 
 func TestErrorResponse_Send(t *testing.T) {
-	e := echo.New()
 
 	req := httptest.NewRequest(http.MethodGet, "/", nil)
 	rec := httptest.NewRecorder()
-	ctx := e.NewContext(req, rec)
+	ctx, _ := gin.CreateTestContext(rec)
+	ctx.Request = req
 
 	resp := ErrorResponse{
 		Code:    http.StatusBadRequest,

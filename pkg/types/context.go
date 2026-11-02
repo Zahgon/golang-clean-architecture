@@ -6,4 +6,5 @@ func (ck CONTEXT_KEY) String() string { return string(ck) }
 
 const (
 	CredentialDataContextKey CONTEXT_KEY = "credential_data"
+	DebugContextKey          CONTEXT_KEY = "debug"
 )

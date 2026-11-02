@@ -70,7 +70,7 @@ The DIP promotes high-level modules (e.g., use cases) to depend on abstractions 
   - [x] [SOLID Principle](https://en.wikipedia.org/wiki/SOLID)
   - [x] Database Transaction
 - HTTP Server
-  - [x] [Echo framework](https://echo.labstack.com/)
+  - [x] [Gin framework](https://gin-gonic.com/)
   - [x] Server Side Caching
     - [x] Cache but revalidate (Header `Cache-Control: no-cache`)
     - [x] Set Expiration Time (Header `Cache-Control: max-age=120`)

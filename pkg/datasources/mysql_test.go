@@ -8,10 +8,14 @@ import (
 
 	"github.com/DoWithLogic/golang-clean-architecture/pkg/datasources"
 	"github.com/stretchr/testify/require"
+	"github.com/testcontainers/testcontainers-go"
 	"github.com/testcontainers/testcontainers-go/modules/mysql"
 )
 
 func startMySQL(t *testing.T) (*mysql.MySQLContainer, string) {
+	// The container needs a Docker daemon: skip where none is reachable.
+	testcontainers.SkipIfProviderIsNotHealthy(t)
+
 	ctx := context.Background()
 
 	img := os.Getenv("MYSQL_CONTAINER_IMAGE")

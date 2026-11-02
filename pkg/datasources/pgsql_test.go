@@ -8,6 +8,7 @@ import (
 	"github.com/DoWithLogic/golang-clean-architecture/pkg/datasources"
 	_ "github.com/go-sql-driver/mysql"
 	"github.com/stretchr/testify/require"
+	"github.com/testcontainers/testcontainers-go"
 	"github.com/testcontainers/testcontainers-go/modules/postgres"
 )
 
@@ -16,6 +17,9 @@ const (
 )
 
 func startPostgres(t *testing.T) (*postgres.PostgresContainer, string) {
+	// The container needs a Docker daemon: skip where none is reachable.
+	testcontainers.SkipIfProviderIsNotHealthy(t)
+
 	ctx := context.Background()
 
 	container, err := postgres.Run(ctx,

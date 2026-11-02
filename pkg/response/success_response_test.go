@@ -6,7 +6,7 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/labstack/echo/v4"
+	"github.com/gin-gonic/gin"
 )
 
 func TestSuccessBuilder(t *testing.T) {
@@ -64,11 +64,11 @@ func TestSuccessBuilder(t *testing.T) {
 }
 
 func TestSuccessResponse_Send(t *testing.T) {
-	e := echo.New()
 
 	req := httptest.NewRequest(http.MethodGet, "/", nil)
 	rec := httptest.NewRecorder()
-	ctx := e.NewContext(req, rec)
+	ctx, _ := gin.CreateTestContext(rec)
+	ctx.Request = req
 
 	resp := SuccessResponse{
 		SuccessDefault: SuccessDefault{
